@@ -230,7 +230,12 @@ class Cursor(object):
                                        for i in range_type(len(args))]))
         yield self._query(q)
         self._executed = q
-        yield gen.Return(args)
+
+        q = 'SELECT ' + ','.join(["@_%s_%d" % (procname, i)
+                                    for i in range_type(len(args))])
+        yield conn.query(q)
+        result = conn._result.rows[0]
+        raise gen.Return(result)
 
     def fetchone(self):
         ''' Fetch the next row '''
