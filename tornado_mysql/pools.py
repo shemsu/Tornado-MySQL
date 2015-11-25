@@ -52,9 +52,9 @@ class Pool(object):
 
     def stat(self):
         """Returns (opened connections, free connections, waiters)"""
-        return (self._opened_conns, len(self._free_conn), len(self._waitings))
+        return self._opened_conns, len(self._free_conn), len(self._waitings)
 
-    def _get_conn(self):
+    def _get_conn(self):  # -> Future[connection]
         now = self.io_loop.time()
 
         # Try to reuse in free pool
@@ -72,20 +72,29 @@ class Pool(object):
         if self.max_open == 0 or self._opened_conns < self.max_open:
             self._opened_conns += 1
             log.debug("Creating new connection: %s", self.stat())
-            return connect(**self.connect_kwargs)
+            fut = connect(**self.connect_kwargs)
+            # self._opened_conns -=1 on exception
+            fut.add_done_callback(self._on_connect)
+            return fut
 
         # Wait to other connection is released.
         fut = Future()
         self._waitings.append(fut)
         return fut
 
+    def _on_connect(self, fut):
+        if fut.exception():
+            self._opened_conns -= 1
+
     def _put_conn(self, conn):
         if (len(self._free_conn) < self.max_idle and
-                self.io_loop.time() - conn.connected_time < self.max_recycle_sec):
+                (self.io_loop.time() - conn.connected_time <
+                 self.max_recycle_sec)):
             if self._waitings:
                 fut = self._waitings.popleft()
                 fut.set_result(conn)
-                log.debug("Passing returned connection to waiter: %s", self.stat())
+                log.debug("Passing returned connection "
+                          "to waiter: %s", self.stat())
             else:
                 self._free_conn.append(conn)
                 log.debug("Add conn to free pool: %s", self.stat())
@@ -104,7 +113,8 @@ class Pool(object):
             fut = self._waitings.popleft()
             conn = Connection(**self.connect_kwargs)
             cf = conn.connect()
-            self.io_loop.add_future(cf, callback=lambda f: fut.set_result(conn))
+            self.io_loop.add_future(
+                cf, callback=lambda f: fut.set_result(conn))
         else:
             self._opened_conns -= 1
         log.debug("Connection closed: %s", self.stat())

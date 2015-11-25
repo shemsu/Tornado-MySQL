@@ -6,3 +6,6 @@ __pycache__
 /.tox
 /build
 /pymysql/tests/databases.json
+
+
+.idea
