@@ -186,6 +186,14 @@ class Transaction(object):
         yield cur.execute(query, args)
         raise Return(cur)
 
+    def cursor(self):
+        """
+        :return: cursors.Cursor
+        :rtype: cursors.Cursor
+        """
+        self._ensure_conn()
+        return self._conn.cursor()
+
     @coroutine
     def commit(self):
         self._ensure_conn()
