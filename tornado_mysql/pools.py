@@ -120,7 +120,7 @@ class Pool(object):
         log.debug("Connection closed: %s", self.stat())
 
     @coroutine
-    def execute(self, query, params=None, cursor=None):
+    def execute(self, query, params=None, cursor=None, executemany=False):
         """Execute query in pool.
 
         Returns future yielding closed cursor.
@@ -133,7 +133,8 @@ class Pool(object):
         conn = yield self._get_conn()
         try:
             cur = conn.cursor(cursor)
-            yield cur.execute(query, params)
+            exec_func = cur.executemany if executemany else cur.execute
+            yield exec_func(query, params)
             yield cur.close()
         except:
             self._close_conn(conn)
