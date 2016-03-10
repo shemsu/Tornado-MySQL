@@ -140,7 +140,7 @@ class Pool(object):
         except Exception as e:
             log.exception("Error while trying to execute: %s", e)
             self._close_conn(conn)
-            raise
+            raise e
         else:
             self._put_conn(conn)
         raise Return(cur)
