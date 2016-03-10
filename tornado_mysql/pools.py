@@ -131,12 +131,17 @@ class Pool(object):
         :rtype: Future
         """
         conn = yield self._get_conn()
+        log.debug("Acquired connection")
         try:
             cur = conn.cursor(cursor)
+            log.debug("Acquired cursor")
             exec_func = cur.executemany if executemany else cur.execute
+            log.debug("Execution function: %s", exec_func.__name__)
             yield exec_func(query, params)
+            log.debug("Executed")
             yield cur.close()
-        except:
+        except Exception as e:
+            log.exception("Error while trying to execute: %s", e)
             self._close_conn(conn)
             raise
         else:
